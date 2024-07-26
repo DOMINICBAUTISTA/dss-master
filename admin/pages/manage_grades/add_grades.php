@@ -299,73 +299,116 @@ $semesters = $semester_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 unset($_SESSION['success_message']);
                             }
                             ?>
-                            <form id="form_advanced_validation" action="../../functions/manage_grades/add_grades.php" method="POST" enctype="multipart/form-data">
+                             <form id="form_advanced_validation" action="../../functions/manage_grades/add_grades.php" method="POST" enctype="multipart/form-data">
+            <div class="form-group form-float">
+                <div class="form-line">
+                    <select name="academic_year_id" class="form-control show-tick" required>
+                        <option style="color: #0e0e0e !important;" disabled selected>-- Select Academic Year --</option>
+                        <?php foreach ($academics as $academic) : ?>
+                            <option value="<?php echo $academic['academic_year_id']; ?>"><?php echo $academic['academic_year']; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
 
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <select name="academic_year_id" class="form-control show-tick" required>
-                                            <option style="color: #0e0e0e !important;" disabled selected>-- Select Academic Year --</option>
-                                            <?php foreach ($academics as $academic) : ?>
-                                                <option value="<?php echo $academic['academic_year_id']; ?>"><?php echo $academic['academic_year']; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
+            <div class="form-group form-float">
+                <div class="form-line">
+                    <select name="semester_id" class="form-control show-tick" required>
+                        <option style="color: #0e0e0e !important;" disabled selected>-- Select Semester --</option>
+                        <?php foreach ($semesters as $semester) : ?>
+                            <option value="<?php echo $semester['semester_id']; ?>"><?php echo $semester['semester_name']; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
 
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <select name="semester_id" class="form-control show-tick" required>
-                                            <option style="color: #0e0e0e !important;" disabled selected>-- Select Semester --</option>
-                                            <?php foreach ($semesters as $semester) : ?>
-                                                <option value="<?php echo $semester['semester_id']; ?>"><?php echo $semester['semester_name']; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
+            <div class="form-group form-float">
+                <div class="form-line">
+                    <select name="student_id" class="form-control show-tick" required>
+                        <option style="color: #0e0e0e !important;" disabled selected>-- Select Student --</option>
+                        <?php foreach ($students as $student) : ?>
+                            <option value="<?php echo $student['student_id']; ?>"><?php echo $student['student_fullname']; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
 
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <select name="student_id" class="form-control show-tick" required>
-                                            <option style="color: #0e0e0e !important;" disabled selected>-- Select Student --</option>
-                                            <?php foreach ($students as $student) : ?>
-                                                <option value="<?php echo $student['student_id']; ?>"><?php echo $student['student_fullname']; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
+            <table id="grade_table" class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Teacher</th>
+                        <th>Final Grade</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be added here dynamically -->
+                </tbody>
+            </table>
 
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <select name="subject_id" class="form-control show-tick" required>
-                                            <option style="color: #0e0e0e !important;" disabled selected>-- Select Subject --</option>
-                                            <?php foreach ($subjects as $subject) : ?>
-                                                <option value="<?php echo $subject['subject_id']; ?>"><?php echo $subject['subject_name']; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
+            <button type="button" class="btn btn-primary" onclick="addRow()">Add Subject</button>
+            <input type="hidden" name="grade_status">
+            <input class="btn bg-red" type="submit" name="submit" value="Add grades">
+        </form>
+        <script>
+        const subjects = <?php echo json_encode($subjects); ?>;
 
-                                <br>
-                                <br>
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <input type="text" class="form-control" name="teacher_assign" required>
-                                        <label class="form-label">Teacher</label>
-                                    </div>
-                                    <div class="help-info">Ex. Juan Dela Cruz, Jr</div>
-                                </div>
+        function addRow() {
+            const table = document.getElementById('grade_table').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
 
-                                <div class="form-group form-float">
-                                    <div class="form-line">
-                                        <input type="number" class="form-control" name="grade_value" required>
-                                        <label class="form-label">Final grade</label>
-                                    </div>
-                                    <div class="help-info">74 below is failing / 75 above is passing</div>
-                                </div>
+            const subjectCell = newRow.insertCell(0);
+            const teacherCell = newRow.insertCell(1);
+            const gradeCell = newRow.insertCell(2);
+            const actionCell = newRow.insertCell(3);
 
-                                <input type="hidden" name="grade_status">
-                                <input class="btn bg-red" type="submit" name="submit" value="Add grades">
-                            </form>
+            const subjectSelect = document.createElement('select');
+            subjectSelect.name = 'subject_id[]';
+            subjectSelect.className = 'form-control show-tick';
+            subjectSelect.required = true;
+
+            const defaultOption = document.createElement('option');
+            defaultOption.text = '-- Select Subject --';
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            subjectSelect.appendChild(defaultOption);
+
+            subjects.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject.subject_id;
+                option.text = subject.subject_name;
+                subjectSelect.appendChild(option);
+            });
+
+            const teacherInput = document.createElement('input');
+            teacherInput.type = 'text';
+            teacherInput.name = 'teacher_assign[]';
+            teacherInput.className = 'form-control';
+            teacherInput.required = true;
+
+            const gradeInput = document.createElement('input');
+            gradeInput.type = 'text';
+            gradeInput.name = 'grade_value[]';
+            gradeInput.className = 'form-control';
+            gradeInput.required = true;
+
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-danger';
+            removeButton.innerText = 'Remove';
+            removeButton.onclick = function() {
+                table.deleteRow(newRow.rowIndex - 1);
+            };
+
+            subjectCell.appendChild(subjectSelect);
+            teacherCell.appendChild(teacherInput);
+            gradeCell.appendChild(gradeInput);
+            actionCell.appendChild(removeButton);
+        }
+    </script>
+
+
                         </div>
                     </div>
                 </div>

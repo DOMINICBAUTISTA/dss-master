@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <a href="download_report_card.php?student_name=<?php echo urlencode($student_name); ?>" class="btn bg-red">Download Report Card</a>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Divine Shephered</title>

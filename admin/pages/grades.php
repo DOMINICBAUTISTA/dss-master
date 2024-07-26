@@ -5,6 +5,7 @@ session_start();
 $admin_id = $_SESSION['admin_id'];
 if (!isset($admin_id)) {
     header('location: ../../login.php');
+    exit;
 }
 
 // GETTING THE DETAILS OF THE SESSION
@@ -16,39 +17,78 @@ $admin_details = $stmt_admin_details->fetch(PDO::FETCH_ASSOC);
 $admin_email = $admin_details['email'];
 $admin_fullname = $admin_details['fullname'];
 
+// Get the list of courses
+$sql_courses = "SELECT course_id, course FROM tbl_course";
+$stmt_courses = $conn->prepare($sql_courses);
+$stmt_courses->execute();
+$courses = $stmt_courses->fetchAll(PDO::FETCH_ASSOC);
+
+// Get the list of years
+$sql_years = "SELECT year_id, year FROM tbl_year";
+$stmt_years = $conn->prepare($sql_years);
+$stmt_years->execute();
+$years = $stmt_years->fetchAll(PDO::FETCH_ASSOC);
+
+// Handle selected course filter
+$selected_course = isset($_GET['course_id']) ? $_GET['course_id'] : '';
+$selected_year = isset($_GET['year_id']) ? $_GET['year_id'] : '';
+
+// Get the grades with optional course and year filters
 $getGrades = "SELECT 
     g.grade_id,
     g.teacher_assign,
     g.grade_value, 
     g.grade_status, 
+    s.student_id,
     s.student_fullname, 
-    s.student_no,
-    s.student_profile,
-    s.student_email,
-    s.student_contact,
-    s.student_address,
-    s.year_id,
-    s.course_id,
-    sn.section_name,
-    sb.subject_name, 
-    sb.subject_code,
-    sb.subject_unit,
-    ay.academic_year, 
-    sem.semester_name,
-    yr.year, 
-    cr.course 
+    sb.subject_name
 FROM tbl_grades g
 LEFT JOIN tbl_student s ON g.student_id = s.student_id
 LEFT JOIN tbl_subject sb ON g.subject_id = sb.subject_id
-LEFT JOIN tbl_academic_year ay ON g.academic_year_id = ay.academic_year_id
-LEFT JOIN tbl_semester sem ON g.semester_id = sem.semester_id
-LEFT JOIN tbl_year yr ON s.year_id = yr.year_id 
-LEFT JOIN tbl_course cr ON s.course_id = cr.course_id 
-LEFT JOIN tbl_section sn ON s.section_id = sn.section_id";
+LEFT JOIN tbl_course c ON s.course_id = c.course_id
+LEFT JOIN tbl_year y ON s.year_id = y.year_id
+WHERE g.grade_status IN ('Passed', 'Failed') " . 
+($selected_course ? "AND s.course_id = ? " : "") . 
+($selected_year ? "AND s.year_id = ? " : "") . 
+"ORDER BY s.student_fullname, sb.subject_name";
 
-$result = $conn->query($getGrades);
+$stmt = $conn->prepare($getGrades);
+if ($selected_course && $selected_year) {
+    $stmt->execute([$selected_course, $selected_year]);
+} elseif ($selected_course) {
+    $stmt->execute([$selected_course]);
+} elseif ($selected_year) {
+    $stmt->execute([$selected_year]);
+} else {
+    $stmt->execute();
+}
+$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Group results by student fullname
+$grouped_results = [];
+foreach ($results as $row) {
+    $student_name = $row['student_fullname'];
+    if (!isset($grouped_results[$student_name])) {
+        $grouped_results[$student_name] = [];
+    }
+    $grouped_results[$student_name][] = $row;
+}
 
+// Delete grades functionality
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['grade_id'])) {
+    $grade_id = $_GET['grade_id'];
+    
+    $deleteGrades = "DELETE FROM tbl_grades WHERE grade_id = ?";
+    $stmt = $conn->prepare($deleteGrades);
+    
+    if ($stmt->execute([$grade_id])) {
+        // Redirect to prevent form resubmission
+        header("Location: {$_SERVER['PHP_SELF']}");
+        exit;
+    } else {
+        echo "Error deleting grade.";
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -285,101 +325,153 @@ $result = $conn->query($getGrades);
     </section>
 
     <section class="content">
-        <div class="container-fluid">
-            <div class="block-header">
-                <ol class="breadcrumb breadcrumb-col-red">
-                    <li><a href="dashboard.php"><i class="material-icons">home</i> Home</a></li>
-                    <li class="active"><i class="material-icons">grade</i> Grades</li>
-                </ol>
-            </div>
-            <!-- Exportable Table -->
+    <div class="container-fluid">
+        <!-- Course Filter Dropdown -->
+        <form method="GET" action="">
             <div class="row clearfix">
-                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                    <div class="card">
-                        <div class="header">
-                            <h2>
-                                STUDENT GRADES LIST
-                            </h2>
-                        </div>
-                        <div class="body">
-                            <div>
-                                <a href="manage_grades/add_grades.php" class="btn btn-tealbtn bg-red waves-effect btn-lg" style="margin-bottom: 15px;">+ Add grades</a>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped table-hover js-basic-example dataTable" style=" color: #0e0e0e !important; margin-top: 20px important!">
-                                    <thead>
-                                        <tr>
-                                            <th>Student Details</th>
-                                            <th>Subject Details</th>
-                                            <th>Grade Summary</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($result as $results) : ?>
-                                            <tr>
-                                                <td>
-                                                    <img style="width: 50px;" src="../../images/profile_picture/<?php echo $results['student_profile'] ?>" alt=""> <br>
-                                                    Year : <span style="font-weight: 900;"><?php echo $results['year']; ?></span> <br>
-                                                    Section : <span style="font-weight: 900;"><?php echo $results['section_name']; ?></span> <br>
-                                                    Strand : <span style="font-weight: 900;"><?php echo $results['course']; ?> </span><br>
-                                                    Name : <span style="font-weight: 900;"><?php echo $results['student_fullname']; ?></span> <br>
-                                                    Student # : <span style="font-weight: 900;"><?php echo $results['student_no']; ?></span> <br>
-                                                </td>
+                <div class="col-md-4">
+                    <select name="course_id" class="form-control show-tick" data-live-search="true">
+                        <option value="">-- Select Course --</option>
+                        <?php foreach ($courses as $course): ?>
+                            <option value="<?php echo $course['course_id']; ?>" <?php echo $selected_course == $course['course_id'] ? 'selected' : ''; ?>>
+                                <?php echo $course['course']; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select name="year_id" class="form-control show-tick" data-live-search="true">
+                        <option value="">-- Select Year --</option>
+                        <?php foreach ($years as $year): ?>
+                            <option value="<?php echo $year['year_id']; ?>" <?php echo $selected_year == $year['year_id'] ? 'selected' : ''; ?>>
+                                <?php echo $year['year']; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+        <br>
+        <br>
 
-                                                <td>
-                                                    Academic Year : <span style="font-weight: 900;"><?php echo $results['academic_year']; ?></span> <br>
-                                                    Teacher Assign : <span style="font-weight: 900;"><?php echo $results['teacher_assign']; ?> </span> <br>
-                                                    Quarter : <span style="font-weight: 900;"><?php echo $results['semester_name']; ?></span> <br>
-                                                    Subject code : <span style="font-weight: 900;"><?php echo $results['subject_code']; ?></span> <br>
-                                                    Subject name : <span style="font-weight: 900;"><?php echo $results['subject_name']; ?></span> <br>
-                                                    Unit : <span style="font-weight: 900;"><?php echo $results['subject_unit']; ?></span> <br>
-                                                </td>
-                                                <td>
-                                                    Final grade : <span style="font-weight: 900;"><?php echo number_format($results['grade_value'], 2); ?></span> <br>
-                                                    Remarks : <span style="color: <?php echo ($results['grade_status'] === 'Passed') ? 'green' : 'red'; ?>; font-weight: 900;">
-                                                        <?php echo $results['grade_status']; ?>
-                                                    </span>
+        <!-- Other HTML content -->
+        <div>
+            <a href="manage_grades/add_grades.php" class="btn btn-tealbtn bg-red waves-effect btn-lg" style="margin-bottom: 15px;">+ Add grades</a>
+        </div>
 
-                                                </td>
-                                                <td>
-                                                    <a class="btn bg-red" href="manage_grades/update_grades.php?grade_id=<?php echo $results['grade_id']; ?>">Update</a>
-                                                    <a class="btn bg-red" href="#" data-toggle="modal" data-target="#deleteGradesModal<?php echo $results['grade_id']; ?>">Delete</a>
-                                                </td>
-                                            </tr>
+        <?php
+// Assuming $grouped_results is populated from a database query
+// Ensure that student_id is included in each grade record in $grouped_results
 
-                                            <div class="modal fade" id="deleteGradesModal<?php echo $results['grade_id']; ?>" tabindex="-1" role="dialog" aria-labelledby="deleteGradesModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog" role="document">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="deleteGradesModalLabel">Delete Grades</h5>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <p>Cannot undo deleting grades are you sure you want to delete this?</p>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <form id="deleteGradesForm" class="deleteGradesForm" data-grade-id="<?php echo $results['grade_id']; ?>" action="../functions/manage_grades/delete_grades.php" method="GET" enctype="multipart/form-data">
-                                                                <input type="hidden" name="grade_id" value="<?php echo $results['grade_id']; ?>">
-                                                                <button type="submit" class="btn bg-red">Delete</button>
-                                                            </form>
-                                                            <button type="button" class="btn btn-link waves-effect" data-dismiss="modal">CLOSE</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+foreach ($grouped_results as $student_name => $grades) : 
+    // Check if grades array is empty
+    if (empty($grades)) {
+        echo "<div class='alert alert-danger'>No grades found for $student_name.</div>";
+        continue;
+    }
+    
+    // Check if student_id exists in the first grade entry
+    if (!isset($grades[0]['student_id']) || empty($grades[0]['student_id'])) {
+        echo "<div class='alert alert-danger'>Student ID missing for $student_name.</div>";
+        continue;
+    }
+
+    $student_id = urlencode($grades[0]['student_id']);
+?>
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                <div class="header">
+                    <h2><?php echo htmlspecialchars($student_name); ?></h2>
+                    <a href="download_report_card.php?student_id=<?php echo $student_id; ?>" class="btn bg-red">Download Report Card</a>
+                </div>
+                <div class="body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover js-basic-example dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Subject Name</th>
+                                    <th>Grade</th>
+                                    <th>Grade Status</th>
+                                    <th>Teacher Assign</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                    $total_grade = 0;
+                                    $total_subjects = count($grades);
+                                    
+                                    foreach ($grades as $grade) :
+                                        // Check if student_id is present in each grade entry
+                                        if (!isset($grade['student_id']) || empty($grade['student_id'])) {
+                                            echo "<tr><td colspan='5' class='alert alert-danger'>Student ID missing for one of the grades.</td></tr>";
+                                            continue;
+                                        }
+
+                                        $total_grade += $grade['grade_value'];
+                                ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($grade['subject_name']); ?></td>
+                                        <td><?php echo number_format($grade['grade_value'], 2); ?></td>
+                                        <td><?php echo htmlspecialchars($grade['grade_status']); ?></td>
+                                        <td><?php echo htmlspecialchars($grade['teacher_assign']); ?></td>
+                                        <td>
+                                            <a class="btn bg-red" href="manage_grades/update_grades.php?grade_id=<?php echo urlencode($grade['grade_id']); ?>">Update</a>
+                                            <a class="btn bg-red" href="#" onclick="deleteGrade(<?php echo intval($grade['grade_id']); ?>)">Delete</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+
+                                <!-- Display GWA row -->
+                                <tr>
+                                    <td colspan="5" style="text-align: right; color:green;"><strong>Average Grade:</strong> <?php echo $total_subjects > 0 ? number_format($total_grade / $total_subjects, 2) : 'N/A'; ?></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            <!-- #END# Exportable Table -->
         </div>
+    </div>
+<?php endforeach; ?>
 
-    </section>
 
+<script>
+    function printCard(studentName) {
+        var studentCard = document.querySelector(`.student-card[data-student-name="${studentName}"]`);
+        var printContents = studentCard.outerHTML;
+        var originalContents = document.body.innerHTML;
+
+        document.body.innerHTML = printContents;
+
+        window.print();
+
+        document.body.innerHTML = originalContents;
+        location.reload(); // To reattach the events
+    }
+</script>
+
+
+
+    <script>
+        function deleteGrade(gradeId) {
+            if (confirm("Are you sure you want to delete this grade?")) {
+                window.location.href = "<?php echo $_SERVER['PHP_SELF']; ?>?action=delete&grade_id=" + gradeId;
+            }
+        }
+    </script>
+
+    <script>
+        function deleteGrade(gradeId) {
+            if (confirm("Are you sure you want to delete this grade?")) {
+                window.location.href = "<?php echo $_SERVER['PHP_SELF']; ?>?action=delete&grade_id=" + gradeId;
+            }
+        }
+    </script>
     <!-- Jquery Core Js -->
     <script src="../assets/plugins/jquery/jquery.min.js"></script>
     <script src="../assets/plugins/sweetalert/sweetalert.min.js"></script>

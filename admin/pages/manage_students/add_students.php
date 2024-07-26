@@ -339,7 +339,6 @@ $sections = $sectionStmt->fetchAll(PDO::FETCH_ASSOC);
                                         </select>
                                     </div>
                                 </div>
-
                                 <br>
                                 <br>
 

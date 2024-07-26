@@ -52,7 +52,23 @@ LEFT JOIN tbl_section sn ON s.section_id = sn.section_id
 WHERE g.student_id = $student_id";
 
 $result = $conn->query($getGrades);
+$results = $conn->query($getGrades);
 
+// Initialize variables for GWA calculation
+$total_grades = 0;
+$total_subjects = 0;
+
+foreach ($results as $row) {
+    $total_grades += $row['grade_value'];
+    $total_subjects++;
+}
+
+// Calculate GWA
+if ($total_subjects > 0) {
+    $gwa = $total_grades / $total_subjects;
+} else {
+    $gwa = 0; // Handle case where there are no grades
+}
 
 ?>
 
@@ -271,77 +287,81 @@ $result = $conn->query($getGrades);
     </section>
 
     <section class="content">
-        <div class="container-fluid">
-            <div class="block-header">
-                <ol class="breadcrumb breadcrumb-col-red">
-                    <li><a href="dashboard.php"><i class="material-icons">home</i> Home</a></li>
-                    <li class="active"><i class="material-icons">grade</i> My Grades</li>
-                </ol>
-            </div>
-            <!-- Exportable Table -->
-            <div class="row clearfix">
-                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                    <div class="card">
-                        <div class="header">
-                            <h2>
-                                MY GRADES LIST
-                            </h2>
-                        </div>
-                        <div class="body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped table-hover js-basic-example dataTable" style=" color: #0e0e0e !important; margin-top: 20px important!">
-                                    <thead>
+    <div class="container-fluid">
+        <div class="block-header">
+            <ol class="breadcrumb breadcrumb-col-red">
+                <li><a href="dashboard.php"><i class="material-icons">home</i> Home</a></li>
+                <li class="active"><i class="material-icons">grade</i> My Grades</li>
+            </ol>
+        </div>
+        <!-- Exportable Table -->
+        <div class="row clearfix">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div class="card">
+                    <div class="header">
+                        <h2>MY GRADES LIST</h2>
+                    </div>
+                    <div class="body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped table-hover js-basic-example dataTable" style="color: #0e0e0e !important; margin-top: 20px important!">
+                                <thead>
+                                    <tr>
+                                        <th>My Details</th>
+                                        <th>My Subject Details</th>
+                                        <th>My Summary</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($result as $results) : ?>
                                         <tr>
-                                            <th>My Details</th>
-                                            <th>My Subject Details</th>
-                                            <th>My Summary</th>
-                                            <th>Actions</th>
+                                            <td>
+                                                <img style="width: 50px;" src="../../images/profile_picture/<?php echo $results['student_profile']; ?>" alt=""> <br>
+                                                Year : <span style="font-weight: 900;"><?php echo $results['year']; ?></span> <br>
+                                                Section : <span style="font-weight: 900;"><?php echo $results['section_name']; ?></span> <br>
+                                                Strand : <span style="font-weight: 900;"><?php echo $results['course']; ?> </span><br>
+                                                Name : <span style="font-weight: 900;"><?php echo $results['student_fullname']; ?></span> <br>
+                                                Student # : <span style="font-weight: 900;"><?php echo $results['student_no']; ?></span> <br>
+                                            </td>
+                                            <td>
+                                                Academic Year : <span style="font-weight: 900;"><?php echo $results['academic_year']; ?></span> <br>
+                                                Teacher Assign : <span style="font-weight: 900;"><?php echo $results['teacher_assign']; ?> </span> <br>
+                                                Semester : <span style="font-weight: 900;"><?php echo $results['semester_name']; ?></span> <br>
+                                                Subject code : <span style="font-weight: 900;"><?php echo $results['subject_code']; ?></span> <br>
+                                                Subject name : <span style="font-weight: 900;"><?php echo $results['subject_name']; ?></span> <br>
+                                                Unit : <span style="font-weight: 900;"><?php echo $results['subject_unit']; ?></span> <br>
+                                            </td>
+                                            <td>
+                                                Final grade : <span style="font-weight: 900;"><?php echo number_format($results['grade_value'], 2); ?></span> <br>
+                                                Remarks : <span style="color: <?php echo ($results['grade_status'] === 'Passed') ? 'green' : 'red'; ?>; font-weight: 900;">
+                                                    <?php echo $results['grade_status']; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a class="btn bg-red" href="manage_grades/view_grades.php?grade_id=<?php echo $results['grade_id']; ?>">View</a>
+                                                <!-- Remove individual PDF buttons, keep only the global one -->
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($result as $results) : ?>
-                                            <tr>
-                                                <td>
-                                                    <img style="width: 50px;" src="../../images/profile_picture/<?php echo $results['student_profile'] ?>" alt=""> <br>
-                                                    Year : <span style="font-weight: 900;"><?php echo $results['year']; ?></span> <br>
-                                                    Section : <span style="font-weight: 900;"><?php echo $results['section_name']; ?></span> <br>
-
-                                                    Strand : <span style="font-weight: 900;"><?php echo $results['course']; ?> </span><br>
-                                                    Name : <span style="font-weight: 900;"><?php echo $results['student_fullname']; ?></span> <br>
-                                                    Student # : <span style="font-weight: 900;"><?php echo $results['student_no']; ?></span> <br>
-                                                </td>
-
-                                                <td>
-                                                    Academic Year : <span style="font-weight: 900;"><?php echo $results['academic_year']; ?></span> <br>
-                                                    Teacher Assign : <span style="font-weight: 900;"><?php echo $results['teacher_assign']; ?> </span> <br>
-                                                    Semester : <span style="font-weight: 900;"><?php echo $results['semester_name']; ?></span> <br>
-                                                    Subject code : <span style="font-weight: 900;"><?php echo $results['subject_code']; ?></span> <br>
-                                                    Subject name : <span style="font-weight: 900;"><?php echo $results['subject_name']; ?></span> <br>
-                                                    Unit : <span style="font-weight: 900;"><?php echo $results['subject_unit']; ?></span> <br>
-                                                </td>
-                                                <td>
-                                                    Final grade : <span style="font-weight: 900;"><?php echo number_format($results['grade_value'], 2); ?></span> <br>
-                                                    Remarks : <span style="color: <?php echo ($results['grade_status'] === 'Passed') ? 'green' : 'red'; ?>; font-weight: 900;">
-                                                        <?php echo $results['grade_status']; ?>
-                                                    </span>
-
-                                                </td>
-                                                <td>
-                                                    <a class="btn bg-red" href="manage_grades/view_grades.php?grade_id=<?php echo $results['grade_id']; ?>">View</a>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <div>
+                                <h3 style="color:green; text-align: center;">General Weighted Average (GWA): <?php echo number_format($gwa, 2); ?></h3>
+                            </div>
+                            <div style="text-align: center; margin-top: 20px;">
+                                <!-- Button to generate the PDF report card for all subjects -->
+                                <a class="btn bg-green" href="generatepdf.php">Download Report Card (PDF)</a>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- #END# Exportable Table -->
         </div>
+        <!-- #END# Exportable Table -->
+    </div>
+</section>
 
-    </section>
+
 
     <!-- Jquery Core Js -->
     <script src="../assets/plugins/jquery/jquery.min.js"></script>
